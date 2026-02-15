@@ -26,7 +26,25 @@ class Dev2CloudError(Exception):
 
 
 class Dev2Cloud:
-    """Client for the Dev2Cloud sandbox management API."""
+    """Client for the Dev2Cloud sandbox management API.
+
+    Example::
+
+        from d2c import Dev2Cloud
+
+        client = Dev2Cloud(api_key="your-api-key")
+
+        # Create a sandbox and wait until it's running
+        sandbox = client.create_sandbox()
+        print(sandbox.credentials)
+
+        # List all active sandboxes
+        for sb in client.list_sandboxes():
+            print(sb.id, sb.status)
+
+        # Clean up
+        client.delete_sandbox(sandbox.id)
+    """
 
     def __init__(self, api_key: str, api_url: str = "https://api.dev2.cloud") -> None:
         """Initialise the Dev2Cloud client.
@@ -144,3 +162,23 @@ class Dev2Cloud:
         """
         response = self._session.delete(self._url(f"/api/v1/sandboxes/{sandbox_id}"))
         self._raise_on_error(response)
+
+    def delete_all(self) -> list[str]:
+        """Deletes all active sandboxes.
+
+        Fetches the current sandbox list and deletes each one. Deletion
+        errors for individual sandboxes are silently ignored so that one
+        failure does not prevent the remaining sandboxes from being removed.
+
+        Returns:
+            A list of sandbox IDs that were successfully deleted.
+        """
+        sandboxes = self.list_sandboxes()
+        deleted: list[str] = []
+        for sb in sandboxes:
+            try:
+                self.delete_sandbox(sb.id)
+                deleted.append(sb.id)
+            except Dev2CloudError:
+                pass
+        return deleted
