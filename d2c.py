@@ -3,14 +3,18 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import requests
+
+
+SandboxType = Literal["postgres", "redis"]
 
 
 @dataclass
 class SandboxResponse:
     id: str
+    sandbox_type: SandboxType
     status: Optional[str]
     created_at: datetime
     credentials: Optional[dict[str, Any]] = None
@@ -35,7 +39,7 @@ class Dev2Cloud:
         client = Dev2Cloud(api_key="your-api-key")
 
         # Create a sandbox and wait until it's running
-        sandbox = client.create_sandbox()
+        sandbox = client.create_sandbox("postgres")
         print(sandbox.credentials)
 
         # List all active sandboxes
@@ -76,6 +80,7 @@ class Dev2Cloud:
     def _parse_sandbox(data: dict[str, Any]) -> SandboxResponse:
         return SandboxResponse(
             id=data["id"],
+            sandbox_type=data["sandbox_type"],
             status=data.get("status"),
             created_at=datetime.fromisoformat(data["created_at"]),
             credentials=data.get("credentials"),
@@ -96,7 +101,9 @@ class Dev2Cloud:
         self._raise_on_error(response)
         return [self._parse_sandbox(item) for item in response.json()]
 
-    def create_sandbox(self, timeout: float = 180) -> SandboxResponse:
+    def create_sandbox(
+        self, sandbox_type: SandboxType, *, timeout: float = 180
+    ) -> SandboxResponse:
         """Creates a new sandbox and waits for it to be ready.
 
         Provisions a sandbox and polls its status once per second until it
@@ -104,6 +111,7 @@ class Dev2Cloud:
         ``failed``.
 
         Args:
+            sandbox_type: The type of sandbox to create (``"postgres"`` or ``"redis"``).
             timeout: Maximum seconds to wait for the sandbox to become
                 ready. Defaults to 180 (3 minutes).
 
@@ -114,7 +122,10 @@ class Dev2Cloud:
             Dev2CloudError: If the sandbox transitions to ``failed`` or
                 does not become ready within ``timeout`` seconds.
         """
-        response = self._session.post(self._url("/api/v1/sandboxes"))
+        response = self._session.post(
+            self._url("/api/v1/sandboxes"),
+            json={"sandbox_type": sandbox_type},
+        )
         self._raise_on_error(response)
         sandbox = self._parse_sandbox(response.json())
 

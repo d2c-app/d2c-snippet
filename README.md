@@ -30,10 +30,15 @@ from d2c import Dev2Cloud
 
 client = Dev2Cloud(api_key="your-api-key")
 
-# Create a sandbox (blocks until ready, up to 3 min)
-sandbox = client.create_sandbox()
+# Create a Postgres sandbox (blocks until ready, up to 3 min)
+sandbox = client.create_sandbox("postgres")
 print(sandbox.credentials)
 # >>> {'user': '...', 'password': '...', 'host': 'connect.dev2.cloud', 'port': 5432, 'database': 'postgres'}
+
+# Or create a Redis sandbox
+redis_sb = client.create_sandbox("redis")
+print(redis_sb.credentials)
+# >>> {'user': '...', 'password': '...', 'host': 'connect.dev2.cloud', 'port': 6379}
 
 # List all active sandboxes
 for sb in client.list_sandboxes():
@@ -54,10 +59,15 @@ const { Dev2Cloud } = require("./d2c");
 
 const client = new Dev2Cloud("your-api-key");
 
-// Create a sandbox (awaits until ready, up to 3 min)
-const sandbox = await client.createSandbox();
+// Create a Postgres sandbox (awaits until ready, up to 3 min)
+const sandbox = await client.createSandbox("postgres");
 console.log(sandbox.credentials);
 // => { user: '...', password: '...', host: 'connect.dev2.cloud', port: 5432, database: 'postgres' }
+
+// Or create a Redis sandbox
+const redisSb = await client.createSandbox("redis");
+console.log(redisSb.credentials);
+// >>> {'user': '...', 'password': '...', 'host': 'connect.dev2.cloud', 'port': 6379}
 
 // List all active sandboxes
 for (const sb of await client.listSandboxes()) {
@@ -78,7 +88,7 @@ await client.deleteAll();
 
 | Method | Description |
 |---|---|
-| `create_sandbox(timeout=180)` | Create a sandbox and wait until it's running. Returns `SandboxResponse`. |
+| `create_sandbox(sandbox_type, *, timeout=180)` | Create a sandbox of the given type (`"postgres"` or `"redis"`) and wait until it's running. Returns `SandboxResponse`. |
 | `get_sandbox(sandbox_id)` | Get a sandbox by ID. |
 | `list_sandboxes()` | List all active sandboxes. |
 | `delete_sandbox(sandbox_id)` | Permanently delete a sandbox. |
@@ -88,7 +98,7 @@ await client.deleteAll();
 
 | Method | Description |
 |---|---|
-| `createSandbox(timeout = 180)` | Create a sandbox and wait until it's running. Returns a sandbox object. |
+| `createSandbox(sandboxType, timeout = 180)` | Create a sandbox of the given type (`"postgres"` or `"redis"`) and wait until it's running. Returns a sandbox object. |
 | `getSandbox(sandboxId)` | Get a sandbox by ID. |
 | `listSandboxes()` | List all active sandboxes. |
 | `deleteSandbox(sandboxId)` | Permanently delete a sandbox. |
@@ -99,13 +109,16 @@ await client.deleteAll();
 | Field | Python type | JavaScript type |
 |---|---|---|
 | `id` | `str` | `string` |
+| `sandbox_type` / `sandboxType` | `"postgres" \| "redis"` | `"postgres" \| "redis"` |
 | `status` | `str \| None` | `string \| null` |
 | `created_at` / `createdAt` | `datetime` | `Date` |
 | `credentials` | `dict \| None` | `object \| null` |
 
 ### `credentials` object
 
-When a sandbox is running, `credentials` contains Postgres connection details:
+When a sandbox is running, `credentials` contains connection details specific to the sandbox type.
+
+**Postgres:**
 
 ```json
 {
@@ -114,6 +127,17 @@ When a sandbox is running, `credentials` contains Postgres connection details:
   "host": "connect.dev2.cloud",
   "port": 5432,
   "database": "postgres"
+}
+```
+
+**Redis:**
+
+```json
+{
+  "user": "...",
+  "password": "...",
+  "host": "connect.dev2.cloud",
+  "port": 6379
 }
 ```
 

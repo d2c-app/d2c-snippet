@@ -1,6 +1,11 @@
 /**
+ * @typedef {"postgres"|"redis"} SandboxType
+ */
+
+/**
  * @typedef {Object} SandboxResponse
  * @property {string} id
+ * @property {SandboxType} sandboxType
  * @property {string|null} status
  * @property {Date} createdAt
  * @property {Object.<string, any>|null} [credentials]
@@ -28,7 +33,7 @@ class Dev2Cloud {
    * const client = new Dev2Cloud("your-api-key");
    *
    * // Create a sandbox and wait until it's running
-   * const sandbox = await client.createSandbox();
+   * const sandbox = await client.createSandbox("postgres");
    * console.log(sandbox.credentials);
    *
    * // List all active sandboxes
@@ -84,6 +89,7 @@ class Dev2Cloud {
   static _parseSandbox(data) {
     return {
       id: data.id,
+      sandboxType: data.sandbox_type,
       status: data.status ?? null,
       createdAt: new Date(data.created_at),
       credentials: data.credentials ?? null,
@@ -124,12 +130,17 @@ class Dev2Cloud {
    * Provisions a sandbox and polls its status once per second until it
    * transitions to `running` (credentials will be available) or `failed`.
    *
+   * @param {SandboxType} sandboxType - The type of sandbox to create (`"postgres"` or `"redis"`).
    * @param {number} [timeout=180] - Maximum seconds to wait for the sandbox to become ready.
    * @returns {Promise<SandboxResponse>} The sandbox object with `running` status and connection credentials.
    * @throws {Dev2CloudError} If the sandbox transitions to `failed` or does not become ready within `timeout` seconds.
    */
-  async createSandbox(timeout = 180) {
-    const response = await this._fetch("/api/v1/sandboxes", { method: "POST" });
+  async createSandbox(sandboxType, timeout = 180) {
+    const response = await this._fetch("/api/v1/sandboxes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sandbox_type: sandboxType }),
+    });
     await Dev2Cloud._raiseOnError(response);
     let sandbox = Dev2Cloud._parseSandbox(await response.json());
 
