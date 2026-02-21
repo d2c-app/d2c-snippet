@@ -9,6 +9,7 @@
  * @property {string|null} status
  * @property {Date} createdAt
  * @property {Object.<string, any>|null} [credentials]
+ * @property {string|null} [url]
  */
 
 class Dev2CloudError extends Error {
@@ -87,12 +88,26 @@ class Dev2Cloud {
    * @returns {SandboxResponse}
    */
   static _parseSandbox(data) {
+    const creds = data.credentials ?? null;
+    let url = null;
+    try {
+      if (creds) {
+        if (data.sandbox_type === "postgres") {
+          url = `postgresql://${creds.user}:${creds.password}@${creds.host}:${creds.port}/${creds.database}`;
+        } else if (data.sandbox_type === "redis") {
+          url = `redis://${creds.user}:${creds.password}@${creds.host}:${creds.port}`;
+        }
+      }
+    } catch {
+      // credentials may be incomplete
+    }
     return {
       id: data.id,
       sandboxType: data.sandbox_type,
       status: data.status ?? null,
       createdAt: new Date(data.created_at),
-      credentials: data.credentials ?? null,
+      credentials: creds,
+      url,
     };
   }
 
@@ -142,22 +157,24 @@ class Dev2Cloud {
       body: JSON.stringify({ sandbox_type: sandboxType }),
     });
     await Dev2Cloud._raiseOnError(response);
-    let sandbox = Dev2Cloud._parseSandbox(await response.json());
+    const { id: sandboxId } = await response.json();
 
     const deadline = Date.now() + timeout * 1000;
-    while (sandbox.status === "pending") {
+    let sandbox;
+    while (true) {
       if (Date.now() >= deadline) {
         throw new Dev2CloudError(
           0,
-          `Sandbox ${sandbox.id} did not become ready within ${timeout}s`
+          `Sandbox ${sandboxId} did not become ready within ${timeout}s`
         );
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      sandbox = await this.getSandbox(sandbox.id);
+      sandbox = await this.getSandbox(sandboxId);
+      if (sandbox.status !== "pending") break;
     }
 
     if (sandbox.status === "failed") {
-      throw new Dev2CloudError(0, `Sandbox ${sandbox.id} failed to provision`);
+      throw new Dev2CloudError(0, `Sandbox ${sandboxId} failed to provision`);
     }
 
     return sandbox;

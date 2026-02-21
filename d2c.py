@@ -3,21 +3,32 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Self
 
 import requests
-
+from pydantic import BaseModel, model_validator
 
 SandboxType = Literal["postgres", "redis"]
 
 
-@dataclass
-class SandboxResponse:
+class SandboxResponse(BaseModel):
     id: str
     sandbox_type: SandboxType
     status: Optional[str]
     created_at: datetime
     credentials: Optional[dict[str, Any]] = None
+    url: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_credentials(self) -> Self:
+        try:
+            if self.sandbox_type == "postgres":
+                self.url = f"postgresql://{self.credentials['user']}:{self.credentials['password']}@{self.credentials['host']}:{self.credentials['port']}/{self.credentials['database']}"
+            elif self.sandbox_type == "redis":
+                self.url = f"redis://{self.credentials['user']}:{self.credentials['password']}@{self.credentials['host']}:{self.credentials['port']}"
+        except Exception:
+            pass
+        return self
 
 
 class Dev2CloudError(Exception):
@@ -127,19 +138,21 @@ class Dev2Cloud:
             json={"sandbox_type": sandbox_type},
         )
         self._raise_on_error(response)
-        sandbox = self._parse_sandbox(response.json())
+        sandbox_id = response.json()["id"]
 
         deadline = time.monotonic() + timeout
-        while sandbox.status == "pending":
+        while True:
             if time.monotonic() >= deadline:
                 raise Dev2CloudError(
-                    0, f"Sandbox {sandbox.id} did not become ready within {timeout}s"
+                    0, f"Sandbox {sandbox_id} did not become ready within {timeout}s"
                 )
             time.sleep(1)
-            sandbox = self.get_sandbox(sandbox.id)
+            sandbox = self.get_sandbox(sandbox_id)
+            if sandbox.status != "pending":
+                break
 
         if sandbox.status == "failed":
-            raise Dev2CloudError(0, f"Sandbox {sandbox.id} failed to provision")
+            raise Dev2CloudError(0, f"Sandbox {sandbox_id} failed to provision")
 
         return sandbox
 

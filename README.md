@@ -6,13 +6,13 @@ A single-file client for the [Dev2Cloud](https://dev2.cloud) sandbox API, availa
 
 ### Python
 
-**Prerequisites:** Python 3.7+, `requests`
+**Prerequisites:** Python 3.10+, `requests`, `pydantic`
 
 1. Copy `d2c.py` into your project
 2. Install the dependency:
 
 ```bash
-pip install requests
+pip install requests pydantic
 ```
 
 ### JavaScript
@@ -32,11 +32,15 @@ client = Dev2Cloud(api_key="your-api-key")
 
 # Create a Postgres sandbox (blocks until ready, up to 3 min)
 sandbox = client.create_sandbox("postgres")
+print(sandbox.url)
+# >>> postgresql://user:pass@connect.dev2.cloud:5432/postgres
 print(sandbox.credentials)
 # >>> {'user': '...', 'password': '...', 'host': 'connect.dev2.cloud', 'port': 5432, 'database': 'postgres'}
 
 # Or create a Redis sandbox
 redis_sb = client.create_sandbox("redis")
+print(redis_sb.url)
+# >>> redis://user:pass@connect.dev2.cloud:6379
 print(redis_sb.credentials)
 # >>> {'user': '...', 'password': '...', 'host': 'connect.dev2.cloud', 'port': 6379}
 
@@ -61,13 +65,17 @@ const client = new Dev2Cloud("your-api-key");
 
 // Create a Postgres sandbox (awaits until ready, up to 3 min)
 const sandbox = await client.createSandbox("postgres");
+console.log(sandbox.url);
+// => postgresql://user:pass@connect.dev2.cloud:5432/postgres
 console.log(sandbox.credentials);
 // => { user: '...', password: '...', host: 'connect.dev2.cloud', port: 5432, database: 'postgres' }
 
 // Or create a Redis sandbox
 const redisSb = await client.createSandbox("redis");
+console.log(redisSb.url);
+// => redis://user:pass@connect.dev2.cloud:6379
 console.log(redisSb.credentials);
-// >>> {'user': '...', 'password': '...', 'host': 'connect.dev2.cloud', 'port': 6379}
+// => { user: '...', password: '...', host: 'connect.dev2.cloud', port: 6379 }
 
 // List all active sandboxes
 for (const sb of await client.listSandboxes()) {
@@ -113,6 +121,7 @@ await client.deleteAll();
 | `status` | `str \| None` | `string \| null` |
 | `created_at` / `createdAt` | `datetime` | `Date` |
 | `credentials` | `dict \| None` | `object \| null` |
+| `url` | `str \| None` | `string \| null` |
 
 ### `credentials` object
 
